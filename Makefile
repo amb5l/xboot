@@ -109,7 +109,7 @@
 ## MCU = atmega1284p
 ## MCU = atmega2560
 ## MCU = atmega2561
-MCU = atxmega64a3
+MCU = atxmega32e5
 
 # Is this a bootloader?
 #MAKE_BOOTLOADER=no
