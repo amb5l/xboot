@@ -277,6 +277,32 @@ int main(void)
         #endif // USE_UART_EN_PIN
         
 #endif // __AVR_XMEGA__
+
+        // Initialize UART RX EN pin
+        
+#ifdef __AVR_XMEGA__
+        
+        #ifdef USE_UART_RX_EN_PIN
+        UART_RX_EN_PORT.DIRSET = (1 << UART_RX_EN_PIN);
+        #if UART_RX_EN_INV
+        UART_RX_EN_PORT.OUTCLR = (1 << UART_RX_EN_PIN);
+        #else // UART_RX_EN_INV
+        UART_RX_EN_PORT.OUTSET = (1 << UART_RX_EN_PIN);
+        #endif // UART_RX_EN_INV
+        #endif // USE_UART_RX_EN_PIN
+        
+#else // __AVR_XMEGA__
+        
+        #ifdef USE_UART_RX_EN_PIN
+        UART_RX_EN_PORT_DDR |= (1 << UART_RX_EN_PIN);
+        #if UART_RX_EN_INV
+        UART_RX_EN_PORT &= ~(1 << UART_RX_EN_PIN);
+        #else // UART_RX_EN_INV
+        UART_RX_EN_PORT |= (1 << UART_RX_EN_PIN);
+        #endif // UART_RX_EN_INV
+        #endif // USE_UART_RX_EN_PIN
+        
+#endif // __AVR_XMEGA__
         
         #endif // USE_UART
         
@@ -321,7 +347,15 @@ int main(void)
         // whether or not USE_ENTER_DELAY is selected
         // --------------------------------------------------
         
-        
+        #ifdef USE_ENTER_SWRST
+        // Check for soft reset
+#ifdef __AVR_XMEGA__
+		if (RST.STATUS == RST_SRF_bm)
+                in_bootloader = 1;
+#else // __AVR_XMEGA__
+#error USE_ENTER_SWRST supported on XMEGA only!
+#endif // __AVR_XMEGA__
+		#endif // USE_ENTER_SWRST        
         
         // --------------------------------------------------
         // End one time trigger section
@@ -416,11 +450,13 @@ int main(void)
                 // --------------------------------------------------
                 // End main trigger section
                 
+                #ifdef USE_WATCHDOG
 #ifdef __AVR_XMEGA__
                 WDT_Reset();
 #else // __AVR_XMEGA__
                 wdt_reset();
 #endif // __AVR_XMEGA__
+                #endif // USE_WATCHDOG
                 
 #ifdef USE_ENTER_DELAY
         }
@@ -448,7 +484,11 @@ int main(void)
                 val = get_char();
                 
                 #ifdef USE_WATCHDOG
+#ifdef __AVR_XMEGA__
                 WDT_Reset();
+#else // __AVR_XMEGA__
+                wdt_reset();
+#endif // __AVR_XMEGA__
                 #endif // USE_WATCHDOG
                 
                 // Main bootloader parser
@@ -968,6 +1008,18 @@ autoneg_done:
         UART_EN_PORT &= ~(1 << UART_EN_PIN);
 #endif // __AVR_XMEGA__
         #endif // USE_UART_EN_PIN
+        
+        // Shut down UART RX EN pin
+        #ifdef USE_UART_RX_EN_PIN
+#ifdef __AVR_XMEGA__
+        UART_RX_EN_PORT.DIRCLR = (1 << UART_RX_EN_PIN);
+        UART_RX_EN_PORT.OUTCLR = (1 << UART_RX_EN_PIN);
+#else // __AVR_XMEGA__
+        UART_RX_EN_PORT_DDR &= ~(1 << UART_RX_EN_PIN);
+        UART_RX_EN_PORT &= ~(1 << UART_RX_EN_PIN);
+#endif // __AVR_XMEGA__
+        #endif // USE_UART_RX_EN_PIN
+
         #endif // USE_UART
         
 #ifdef __AVR_XMEGA__
@@ -1100,7 +1152,15 @@ unsigned char __attribute__ ((noinline)) get_char(void)
 {
         unsigned char ret;
         
-        while (rx_char_cnt == 0) { };
+        while (rx_char_cnt == 0) {
+                #ifdef USE_WATCHDOG
+#ifdef __AVR_XMEGA__
+                WDT_Reset();
+#else // __AVR_XMEGA__
+                wdt_reset();
+#endif // __AVR_XMEGA__
+                #endif // USE_WATCHDOG
+        };
         
         cli();
         
@@ -1117,6 +1177,14 @@ void __attribute__ ((noinline)) send_char(unsigned char c)
 {
         while (1)
         {
+                #ifdef USE_WATCHDOG
+#ifdef __AVR_XMEGA__
+                WDT_Reset();
+#else // __AVR_XMEGA__
+                wdt_reset();
+#endif // __AVR_XMEGA__
+                #endif // USE_WATCHDOG
+
                 cli();
                 
                 if (tx_char_cnt == 0)
@@ -1158,6 +1226,14 @@ unsigned char __attribute__ ((noinline)) get_char(void)
         
         while (1)
         {
+                #ifdef USE_WATCHDOG
+#ifdef __AVR_XMEGA__
+                WDT_Reset();
+#else // __AVR_XMEGA__
+                wdt_reset();
+#endif // __AVR_XMEGA__
+                #endif // USE_WATCHDOG
+
                 #ifdef USE_UART
                 // Get next character
                 if (comm_mode == MODE_UNDEF || comm_mode == MODE_UART)
@@ -1238,6 +1314,23 @@ void __attribute__ ((noinline)) send_char(unsigned char c)
         if (comm_mode == MODE_UNDEF || comm_mode == MODE_UART)
         {
 #ifdef __AVR_XMEGA__
+                #ifdef USE_UART_RX_EN_PIN
+                #if UART_RX_EN_INV
+                UART_RX_EN_PORT.OUTSET = (1 << UART_RX_EN_PIN);
+                #else // UART_RX_EN_INV
+                UART_RX_EN_PORT.OUTCLR = (1 << UART_RX_EN_PIN);
+                #endif // UART_RX_EN_INV
+                #endif // USE_UART_RX_EN_PIN
+#else // __AVR_XMEGA__
+                #ifdef USE_UART_RX_EN_PIN
+                #if UART_RX_EN_INV
+                UART_RX_EN_PORT |= (1 << UART_RX_EN_PIN);
+                #else // UART_RX_EN_INV
+                UART_RX_EN_PORT &= ~(1 << UART_RX_EN_PIN);
+                #endif // UART_RX_EN_INV
+                #endif // USE_UART_RX_EN_PIN
+#endif // __AVR_XMEGA__
+#ifdef __AVR_XMEGA__
                 #ifdef USE_UART_EN_PIN
                 #if UART_EN_INV
                 UART_EN_PORT.OUTCLR = (1 << UART_EN_PIN);
@@ -1272,7 +1365,23 @@ void __attribute__ ((noinline)) send_char(unsigned char c)
                 #endif // UART_EN_INV
                 #endif // USE_UART_EN_PIN
 #endif // __AVR_XMEGA__
-                
+#ifdef __AVR_XMEGA__
+                #ifdef USE_UART_RX_EN_PIN
+                #if UART_RX_EN_INV
+                UART_RX_EN_PORT.OUTCLR = (1 << UART_RX_EN_PIN);
+                #else // UART_RX_EN_INV
+                UART_RX_EN_PORT.OUTSET = (1 << UART_RX_EN_PIN);
+                #endif // UART_RX_EN_INV
+                #endif // USE_UART_RX_EN_PIN
+#else // __AVR_XMEGA__
+                #ifdef USE_UART_RX_EN_PIN
+                #if UART_RX_EN_INV
+                UART_RX_EN_PORT &= ~(1 << UART_RX_EN_PIN);
+                #else // UART_RX_EN_INV
+                UART_RX_EN_PORT |= (1 << UART_RX_EN_PIN);
+                #endif // UART_RX_EN_INV
+                #endif // USE_UART_RX_EN_PIN
+#endif // __AVR_XMEGA__                
         }
         #endif // USE_UART
         
@@ -1282,6 +1391,14 @@ void __attribute__ ((noinline)) send_char(unsigned char c)
         {
                 while (1)
                 {
+                        #ifdef USE_WATCHDOG
+#ifdef __AVR_XMEGA__
+                        WDT_Reset();
+#else // __AVR_XMEGA__
+                        wdt_reset();
+#endif // __AVR_XMEGA__
+                        #endif // USE_WATCHDOG
+
 #ifdef __AVR_XMEGA__
                         if (i2c_address_match())
                         {
@@ -1360,7 +1477,11 @@ unsigned char BlockLoad(unsigned int size, unsigned char mem, ADDR_T *address)
         ADDR_T tempaddress;
         
         #ifdef USE_WATCHDOG
+#ifdef __AVR_XMEGA__
         WDT_Reset();
+#else // __AVR_XMEGA__
+        wdt_reset();
+#endif // __AVR_XMEGA__
         #endif // USE_WATCHDOG
         
         // fill up buffer
